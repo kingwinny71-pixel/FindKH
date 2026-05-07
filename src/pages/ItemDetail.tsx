@@ -1,15 +1,58 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
-import { db, handleFirestoreError, OperationType } from "@/src/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { db, auth, handleFirestoreError, OperationType } from "@/src/lib/firebase";
+import { doc, getDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { Item } from "@/src/types";
-import { motion } from "motion/react";
-import { MapPin, Clock, Tag, User, MessageCircle, ArrowLeft, Share2, AlertTriangle } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { MapPin, Clock, Tag, User, MessageCircle, ArrowLeft, Share2, AlertTriangle, Check, Flag, X } from "lucide-react";
 
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [item, setItem] = React.useState<Item | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [copied, setCopied] = React.useState(false);
+  const [showReportModal, setShowReportModal] = React.useState(false);
+  const [reportReason, setReportReason] = React.useState("spam");
+  const [reportDescription, setReportDescription] = React.useState("");
+  const [isReporting, setIsReporting] = React.useState(false);
+  const [reportSuccess, setReportSuccess] = React.useState(false);
+
+  const handleReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.currentUser || !item) return;
+
+    setIsReporting(true);
+    try {
+      await addDoc(collection(db, "flags"), {
+        itemId: item.id,
+        itemTitle: item.title,
+        reporterId: auth.currentUser.uid,
+        reason: reportReason,
+        description: reportDescription,
+        createdAt: serverTimestamp(),
+      });
+      setReportSuccess(true);
+      setTimeout(() => {
+        setReportSuccess(false);
+        setShowReportModal(false);
+        setReportDescription("");
+      }, 2000);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, "flags");
+    } finally {
+      setIsReporting(false);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy: ", err);
+    }
+  };
 
   React.useEffect(() => {
     if (!id) return;
@@ -116,11 +159,33 @@ export default function ItemDetailPage() {
                 <MessageCircle className="w-5 h-5" />
                 Contact Owner
               </a>
-              <button className="flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-200 px-6 py-4 rounded-2xl font-bold hover:bg-gray-50 transition-all">
-                <Share2 className="w-5 h-5" />
-                Share
+              <button 
+                onClick={handleShare}
+                className={`flex items-center justify-center gap-2 border px-6 py-4 rounded-2xl font-bold transition-all ${copied ? "bg-green-50 border-green-200 text-green-600" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"}`}
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-5 h-5" />
+                    Share
+                  </>
+                )}
               </button>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-4">
+            <button 
+              onClick={() => setShowReportModal(true)}
+              className="text-xs font-bold text-gray-400 hover:text-red-500 flex items-center gap-1.5 transition-colors group"
+            >
+              <Flag className="w-3 h-3 group-hover:fill-current" />
+              Report inappropriate content
+            </button>
           </div>
 
           <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
@@ -132,6 +197,99 @@ export default function ItemDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Report Modal */}
+      <AnimatePresence>
+        {showReportModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[60]"
+              onClick={() => !isReporting && setShowReportModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-lg bg-white rounded-[2.5rem] shadow-2xl z-[70] overflow-hidden"
+            >
+              {reportSuccess ? (
+                <div className="p-12 text-center">
+                  <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Check className="w-10 h-10" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Report Received</h3>
+                  <p className="text-gray-500">Thank you for keeping our community safe. Our team will review this listing.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleReport}>
+                  <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900 tracking-tight">Report Listing</h3>
+                      <p className="text-sm text-gray-500 mt-1">Help us understand what's wrong.</p>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => setShowReportModal(false)}
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-xl transition-all"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <div className="p-8 space-y-6">
+                    <div className="space-y-3">
+                      <label className="text-sm font-black uppercase tracking-widest text-gray-400">Reason for report</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {['spam', 'scam', 'fake', 'offensive', 'other'].map((reason) => (
+                          <button
+                            key={reason}
+                            type="button"
+                            onClick={() => setReportReason(reason)}
+                            className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all text-left flex items-center justify-between ${
+                              reportReason === reason 
+                                ? "bg-primary/5 border-primary text-primary shadow-sm" 
+                                : "bg-white border-gray-100 text-gray-500 hover:border-gray-300"
+                            }`}
+                          >
+                            <span className="capitalize">{reason}</span>
+                            {reportReason === reason && <Check className="w-4 h-4" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-sm font-black uppercase tracking-widest text-gray-400">Additional details (Optional)</label>
+                      <textarea
+                        value={reportDescription}
+                        onChange={(e) => setReportDescription(e.target.value)}
+                        placeholder="Provide more information..."
+                        className="w-full px-6 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all resize-none min-h-[120px] font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-8 bg-gray-50 flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="submit"
+                      disabled={isReporting || !auth.currentUser}
+                      className="flex-1 bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-primary transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isReporting ? "Submitting..." : "Submit Report"}
+                    </button>
+                    {!auth.currentUser && (
+                       <p className="text-xs text-red-500 text-center w-full mt-2">You must be signed in to report a listing.</p>
+                    )}
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -3,14 +3,20 @@ import { db, handleFirestoreError, OperationType } from "@/src/lib/firebase";
 import { collection, query, orderBy, limit, onSnapshot, where } from "firebase/firestore";
 import { Item } from "@/src/types";
 import { motion } from "motion/react";
-import { MapPin, Clock, Search, Filter } from "lucide-react";
+import { MapPin, Clock, Search, Filter, LayoutGrid, Map as MapIcon, Tag, Check } from "lucide-react";
 import { Link } from "react-router-dom";
+import MapView from "@/src/components/MapView";
 
 export default function BrowsePage() {
   const [items, setItems] = React.useState<Item[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [filterType, setFilterType] = React.useState<"all" | "lost" | "found">("all");
+  const [viewMode, setViewMode] = React.useState<"grid" | "map">("grid");
+  const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = React.useState<"all" | "active" | "resolved">("all");
+
+  const categories = ["Electronics", "Pets", "Documents", "Bags", "Accessories", "Keys", "Other"];
 
   React.useEffect(() => {
     let q = query(collection(db, "items"), orderBy("createdAt", "desc"), limit(40));
@@ -30,11 +36,30 @@ export default function BrowsePage() {
     return () => unsubscribe();
   }, [filterType]);
 
-  const filteredItems = items.filter(item => 
-    item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.location.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredItems = items.filter(item => {
+    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.location.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(item.category);
+    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const categoryCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    items.forEach(item => {
+      counts[item.category] = (counts[item.category] || 0) + 1;
+    });
+    return counts;
+  }, [items]);
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-6">
@@ -44,25 +69,42 @@ export default function BrowsePage() {
           <p className="text-gray-500 mt-1">Found something? Search here to see if anyone reported it lost.</p>
         </div>
         
-        <div className="flex items-center gap-3 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
-          <button 
-            onClick={() => setFilterType("all")}
-            className={`px-6 py-2 rounded-lg font-bold transition-all ${filterType === "all" ? "bg-primary text-white shadow-md shadow-primary/20" : "text-gray-500 hover:bg-gray-50"}`}
-          >
-            All
-          </button>
-          <button 
-            onClick={() => setFilterType("lost")}
-            className={`px-6 py-2 rounded-lg font-bold transition-all ${filterType === "lost" ? "bg-primary text-white shadow-md shadow-primary/20" : "text-gray-500 hover:bg-gray-50"}`}
-          >
-            Lost
-          </button>
-          <button 
-            onClick={() => setFilterType("found")}
-            className={`px-6 py-2 rounded-lg font-bold transition-all ${filterType === "found" ? "bg-primary text-white shadow-md shadow-primary/20" : "text-gray-500 hover:bg-gray-50"}`}
-          >
-            Found
-          </button>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
+            <button 
+              onClick={() => setViewMode("grid")}
+              className={`p-2 rounded-lg transition-all ${viewMode === "grid" ? "bg-primary text-white shadow-md shadow-primary/20" : "text-gray-400 hover:bg-gray-50"}`}
+            >
+              <LayoutGrid className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setViewMode("map")}
+              className={`p-2 rounded-lg transition-all ${viewMode === "map" ? "bg-primary text-white shadow-md shadow-primary/20" : "text-gray-400 hover:bg-gray-50"}`}
+            >
+              <MapIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
+            <button 
+              onClick={() => setFilterType("all")}
+              className={`px-6 py-2 rounded-lg font-bold transition-all ${filterType === "all" ? "bg-primary text-white shadow-md shadow-primary/20" : "text-gray-500 hover:bg-gray-50"}`}
+            >
+              All
+            </button>
+            <button 
+              onClick={() => setFilterType("lost")}
+              className={`px-6 py-2 rounded-lg font-bold transition-all ${filterType === "lost" ? "bg-primary text-white shadow-md shadow-primary/20" : "text-gray-500 hover:bg-gray-50"}`}
+            >
+              Lost
+            </button>
+            <button 
+              onClick={() => setFilterType("found")}
+              className={`px-6 py-2 rounded-lg font-bold transition-all ${filterType === "found" ? "bg-primary text-white shadow-md shadow-primary/20" : "text-gray-500 hover:bg-gray-50"}`}
+            >
+              Found
+            </button>
+          </div>
         </div>
       </div>
 
@@ -84,20 +126,54 @@ export default function BrowsePage() {
           
           <div className="space-y-4">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
-              <Filter className="w-5 h-5 text-primary" /> Filter by Category
+              <Filter className="w-5 h-5 text-primary" /> Filter by Status
             </h3>
             <div className="flex flex-col gap-2">
-              {["Electronics", "Pets", "Documents", "Bags", "Accessories", "Keys", "Other"].map(cat => (
-                <label key={cat} className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors">
-                  <input type="checkbox" className="rounded text-primary focus:ring-primary w-4 h-4" />
-                  <span className="text-sm font-medium">{cat}</span>
+              {["all", "active", "resolved"].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status as any)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border ${statusFilter === status ? "bg-primary/5 border-primary/20 text-primary" : "bg-white border-gray-100 text-gray-500 hover:border-gray-200"}`}
+                >
+                  <div className={`w-2 h-2 rounded-full ${status === "active" ? "bg-green-500" : status === "resolved" ? "bg-blue-500" : "bg-gray-300"}`}></div>
+                  <span className="capitalize">{status}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Tag className="w-5 h-5 text-primary" /> Categories
+              </h3>
+              {selectedCategories.length > 0 && (
+                <button 
+                  onClick={() => setSelectedCategories([])}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              {categories.map(cat => (
+                <label key={cat} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${selectedCategories.includes(cat) ? "bg-primary/5 border-primary/20" : "bg-white border-gray-100 hover:border-gray-200"}`}>
+                  <input 
+                    type="checkbox" 
+                    className="rounded text-primary focus:ring-primary w-4 h-4" 
+                    checked={selectedCategories.includes(cat)}
+                    onChange={() => toggleCategory(cat)}
+                  />
+                  <span className={`text-sm font-medium flex-1 ${selectedCategories.includes(cat) ? "text-primary" : "text-gray-600"}`}>{cat}</span>
+                  <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">{categoryCounts[cat] || 0}</span>
                 </label>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Results Grid */}
+        {/* Results */}
         <div className="lg:col-span-3">
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-pulse">
@@ -105,6 +181,8 @@ export default function BrowsePage() {
                 <div key={idx} className="bg-gray-100 rounded-2xl h-[400px]"></div>
               ))}
             </div>
+          ) : viewMode === "map" ? (
+            <MapView items={filteredItems} />
           ) : filteredItems.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {filteredItems.map((item, idx) => (
@@ -121,6 +199,15 @@ export default function BrowsePage() {
                       <span className={`px-3 py-1 text-white text-xs font-bold rounded-full shadow-lg ${item.type === "lost" ? "bg-red-500" : "bg-green-500"}`}>
                         {item.type.toUpperCase()}
                       </span>
+                    </div>
+                    <div className="absolute top-4 right-4">
+                      {item.status === "resolved" ? (
+                        <span className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-1">
+                          <Check className="w-3 h-3" /> RESOLVED
+                        </span>
+                      ) : (
+                        <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm shadow-green-500/50"></div>
+                      )}
                     </div>
                   </div>
                   <div className="p-6">

@@ -30,8 +30,23 @@
         "email": { "type": "string" },
         "photoURL": { "type": "string" },
         "phoneNumber": { "type": "string" },
+        "fcmTokens": { "type": "array", "items": { "type": "string" }, "description": "Device tokens for push notifications" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "Flag": {
+      "title": "Item Flag/Report",
+      "description": "A report filed by a user against a potentially inappropriate item listing",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "itemTitle": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "reason": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["itemId", "reporterId", "reason", "createdAt"]
     }
   },
   "firestore": {
@@ -42,6 +57,10 @@
     "users": {
       "schema": "UserProfile",
       "description": "User profiles"
+    },
+    "flags": {
+      "schema": "Flag",
+      "description": "Inappropriate content reports"
     }
   }
 }

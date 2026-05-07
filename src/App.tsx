@@ -6,6 +6,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "@/src/components/Navbar";
+import NotificationManager from "@/src/components/NotificationManager";
 import Hero from "@/src/components/Hero";
 import SearchBar from "@/src/components/SearchBar";
 import CategorySection from "@/src/components/CategorySection";
@@ -13,6 +14,7 @@ import RecentItems from "@/src/components/RecentItems";
 import ReportPage from "@/src/pages/Report";
 import BrowsePage from "@/src/pages/Browse";
 import ItemDetailPage from "@/src/pages/ItemDetail";
+import MyReportsPage from "@/src/pages/MyReports";
 
 function HomePage() {
   return (
@@ -63,10 +65,12 @@ export default function App() {
     <Router>
       <div className="min-h-screen flex flex-col">
         <Navbar />
+        <NotificationManager />
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/report" element={<ReportPage />} />
+          <Route path="/my-reports" element={<MyReportsPage />} />
           <Route path="/item/:id" element={<ItemDetailPage />} />
           <Route path="/categories" element={<CategorySection />} />
           <Route path="/about" element={<div className="p-20 text-center px-6 max-w-2xl mx-auto"><h1 className="text-3xl font-bold mb-4">About FindKH</h1><p className="text-gray-600">FindKH is a dedicated community platform designed to bridge the gap between people who have lost belongings and those who have found them. Our mission is to promote honesty and community spirit within Cambodia.</p></div>} />
