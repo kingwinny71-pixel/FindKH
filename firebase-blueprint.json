@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "Item": {
+      "title": "Lost or Found Item",
+      "description": "Represents an item that has been reported as lost or found in Cambodia",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Short title of the item" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "type": { "type": "string", "enum": ["lost", "found"], "description": "Whether the item was lost or found" },
+        "category": { "type": "string", "description": "Category of the item (e.g., Electronics, Pets)" },
+        "location": { "type": "string", "description": "Descriptive location" },
+        "geopoint": { "type": "object", "description": "Latitude and longitude coordinates" },
+        "imageUrl": { "type": "string", "description": "URL to the item image" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the report was created" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the report was last updated" },
+        "status": { "type": "string", "enum": ["active", "resolved"], "description": "Current status of the report" },
+        "authorId": { "type": "string", "description": "UID of the user who posted" },
+        "reportedBy": { "type": "string", "description": "Display name of the user who posted" },
+        "authorEmail": { "type": "string", "description": "Email of the user who posted" }
+      },
+      "required": ["title", "type", "category", "location", "authorId", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Public profile information for a user",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "items": {
+      "schema": "Item",
+      "description": "Collection of lost and found reports"
+    },
+    "users": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    }
+  }
+}

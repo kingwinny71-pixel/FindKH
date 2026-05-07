@@ -1,0 +1,6 @@
+{
+  "name": "Lost & Found Cambodia",
+  "description": "A community-focused platform for reporting lost and found items, pets, and electronics in Cambodia. Search nearby items and contact owners directly.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}
